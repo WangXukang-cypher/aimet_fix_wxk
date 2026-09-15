@@ -338,13 +338,6 @@ def compute_encodings(sim: "QuantizationSimModel"):
                     qc_op.op_mode = OpMode.quantizeDequantize
 
         yield
-
-        for op_name, qc_op in enabled_quantizers.items():
-            if not qc_op.is_encoding_frozen():
-                qc_op.compute_encodings()
-            qc_op.op_mode = OpMode.quantizeDequantize
-
-        sim._adjust_weight_scales_against_overflow()  # pylint: disable=protected-access
     except BaseException:
         for name, qc_op in enabled_quantizers.items():
             op_mode, encodings = original_states[name]
@@ -352,8 +345,15 @@ def compute_encodings(sim: "QuantizationSimModel"):
                 qc_op.load_encodings(encodings)
             qc_op.op_mode = op_mode
         raise
+    else:
+        for op_name, qc_op in enabled_quantizers.items():
+            if not qc_op.is_encoding_frozen():
+                qc_op.compute_encodings()
+            qc_op.op_mode = OpMode.quantizeDequantize
+
+        sim._adjust_weight_scales_against_overflow()  # pylint: disable=protected-access
     finally:
-        sim._is_computing_encodings = False  # pylint: disable=protected-access
+        delattr(sim, "_is_computing_encodings")
 
 
 def _fill_missing_node_names(model: onnx.ModelProto):
